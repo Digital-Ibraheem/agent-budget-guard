@@ -67,11 +67,14 @@ class PricingTable:
         if model in self._models:
             return model
 
-        # For versioned models like gpt-4-0314, try to find base model
-        # e.g., gpt-4-0314 -> gpt-4
-        base_model = model.rsplit("-", 1)[0] if "-" in model else model
-        if base_model in self._models:
-            return base_model
+        # Try to match versioned models like gpt-4-0314 or gpt-4o-mini-2024-07-18 to their base model.
+        # E.g., gpt-4o-mini-2024-07-18 -> gpt-4o-mini
+        parts = model.split("-")
+        # Try stripping numeric 'version/date' suffixes step by step
+        for i in range(len(parts), 0, -1):
+            candidate = "-".join(parts[:i])
+            if candidate in self._models:
+                return candidate
 
         raise PricingDataError(
             f"Model '{model}' not found in pricing configuration. "
