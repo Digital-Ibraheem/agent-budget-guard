@@ -1,79 +1,63 @@
 # Agent Budget
 
-Prevent runaway agent costs by enforcing hard spending limits on OpenAI API usage. Wrap your OpenAI client once and guarantee that total spend never exceeds a fixed USD budget.
+Hard spending limits for OpenAI API calls. Prevents runaway agent costs.
 
----
-
-## Quick Setup
+## Setup
 
 ```bash
-pip install -e .
+pip install git+https://github.com/Digital-Ibraheem/agent-budget.git
 ```
+
+Set your API key:
+
+```bash
+export OPENAI_API_KEY=sk-...
+```
+
+Or pass it directly: `BudgetedSession.openai(budget_usd=5.00, api_key="sk-...")`
+
+## Usage
 
 ```python
 from agent_budget import BudgetedSession
 
-client = BudgetedSession.openai(budget_usd=5.00)
-
-response = client.chat.completions.create(
-    model="gpt-4o-mini",
-    messages=[{"role": "user", "content": "Hello"}]
-)
-
-print(f"Spent: ${client.session.get_total_spent():.4f}")
-print(client.session.get_summary())
-```
-
-If the request would exceed the remaining budget, a `BudgetExceededError` is raised before the API call is made.
-
----
-
-## Callbacks
-
-Handle budget events without try/except:
-
-```python
 client = BudgetedSession.openai(
     budget_usd=5.00,
     on_budget_exceeded=lambda e: print(f"Budget hit: {e}"),
     on_warning=lambda w: print(f"{w['threshold']}% budget used"),
 )
 
-# Returns None instead of raising when budget is exceeded
 response = client.chat.completions.create(
     model="gpt-4o-mini",
     messages=[{"role": "user", "content": "Hello"}]
 )
+
+print(response.choices[0].message.content)
+print(client.session.get_summary())
 ```
 
-Warnings fire at 30%, 80%, and 95% utilization by default. Customize with `warning_thresholds=[50, 90]`.
+`client` works exactly like a normal OpenAI client — same `client.chat.completions.create()` interface. When spending would exceed your budget, the call is blocked before it hits the API.
 
----
+## Callbacks
 
-## Why This Exists
+**`on_budget_exceeded`** — Called when a request would exceed your budget. Makes `create()` return `None` instead of raising. Without it, a `BudgetExceededError` is raised.
 
-Autonomous agents can accumulate significant API costs in minutes due to recursive loops, retries, or concurrent execution. This library prevents that by:
+**`on_warning`** — Called when utilization crosses a threshold. Fires at 30%, 80%, and 95% by default. Customize with `warning_thresholds=[50, 90]`. Each threshold fires once.
 
-* Blocking calls before they exceed your remaining budget
-* Supporting concurrent threads safely
-* Estimating cost using model-specific pricing
-* Recording actual spend after each successful request
+The callback receives a dict:
 
----
+```python
+{
+    "threshold": 80,       # which % threshold was crossed
+    "spent": 4.02,         # total spent so far
+    "remaining": 0.98,     # budget left
+    "budget": 5.00         # total budget
+}
+```
 
-## Features
+## Concurrent Agents
 
-* One-liner setup with `BudgetedSession.openai()`
-* Hard budget enforcement
-* Budget warning callbacks at configurable thresholds
-* Budget exceeded callback (no try/except needed)
-* Thread-safe reservation system
-* Compatible with all current OpenAI models including GPT-5.2 and o-series
-* Drop-in wrapper for the OpenAI Python client
-
----
-
-## Concurrent Agents Example
+All agents share the same budget pool. Thread-safe.
 
 ```python
 import concurrent.futures
@@ -95,96 +79,38 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
     executor.map(agent_task, range(5))
 ```
 
-All agents share the same budget pool.
-
----
-
-## Manual Setup
-
-If you need more control, use the two-step API:
-
-```python
-from openai import OpenAI
-from agent_budget import BudgetedSession
-
-session = BudgetedSession(budget_usd=5.00)
-client = session.wrap_openai(OpenAI())
-```
-
----
-
-## Batch Tier (Reduced Cost)
-
-If using OpenAI batch tier pricing:
-
-```python
-client = BudgetedSession.openai(budget_usd=5.00, tier="batch")
-```
-
-The pricing estimator will use batch rates automatically.
-
----
-
-## O-Series Model Note
-
-Models such as `o1`, `o3`, `o3-pro`, and `o4-mini` use internal reasoning tokens that increase cost relative to visible output. Allocate budget conservatively when using reasoning-focused models.
-
----
-
-## Public API
-
-```python
-# One-liner setup
-client = BudgetedSession.openai(budget_usd=5.00)
-
-# Access session from client
-client.session.get_total_spent()
-client.session.get_remaining_budget()
-client.session.get_summary()
-client.session.get_budget()
-client.session.get_reserved()
-client.session.reset()
-```
-
----
-
 ## How It Works
 
-1. Estimate token usage before sending the request
-2. Calculate estimated cost using model pricing
-3. Atomically reserve budget
-4. Execute API call if within limit
-5. Record actual cost from response
-6. Check warning thresholds and fire callbacks
-7. Release reservation
+1. Estimates cost before each API call using model-specific pricing and token counting
+2. Atomically reserves budget (thread-safe lock prevents race conditions)
+3. Makes the API call only if within budget
+4. Calculates actual cost from the response
+5. Commits actual cost and releases reservation
+6. Fires warning callbacks if utilization thresholds are crossed
 
-This guarantees:
+Guarantees `spent + reserved <= budget` at all times, even under concurrency.
 
+## Session API
+
+```python
+client.session.get_total_spent()        # USD spent so far
+client.session.get_remaining_budget()   # USD remaining (accounts for in-flight calls)
+client.session.get_summary()            # full breakdown dict
+client.session.get_budget()             # total budget
+client.session.get_reserved()           # USD reserved for in-flight calls
+client.session.reset()                  # reset to zero
 ```
-spent + reserved <= budget
-```
-
-at all times, even under concurrency.
-
----
 
 ## Supported Models
 
-Compatible with current OpenAI models, including:
+GPT-5.2, GPT-5.1, GPT-5-mini, GPT-5-nano, GPT-4.1, GPT-4o, GPT-4o-mini, o1, o3, o3-pro, o4-mini, gpt-4-turbo, gpt-4, gpt-3.5-turbo
 
-* GPT-5.2, GPT-5.1, GPT-5-mini, GPT-5-nano
-* GPT-4.1, GPT-4o, GPT-4o-mini
-* o1, o3, o3-pro, o4-mini
-* gpt-4-turbo, gpt-4, gpt-3.5-turbo
-
-Pricing tables should be kept aligned with official OpenAI API pricing.
-
----
+Batch tier pricing: `BudgetedSession.openai(budget_usd=5.00, tier="batch")`
 
 ## Development
 
 ```bash
-git clone <repo>
+git clone https://github.com/Digital-Ibraheem/agent-budget.git
 cd agent-budget
 pip install -e ".[dev]"
 pytest
