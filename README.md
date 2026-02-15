@@ -11,21 +11,42 @@ pip install -e .
 ```
 
 ```python
-from openai import OpenAI
 from agent_budget import BudgetedSession
 
-session = BudgetedSession(budget_usd=5.00)
-client = session.wrap_openai(OpenAI())
+client = BudgetedSession.openai(budget_usd=5.00)
 
 response = client.chat.completions.create(
-    model="gpt-5.2",
+    model="gpt-4o-mini",
     messages=[{"role": "user", "content": "Hello"}]
 )
 
-print(f"Spent: ${session.get_total_spent():.4f}")
+print(f"Spent: ${client.session.get_total_spent():.4f}")
+print(client.session.get_summary())
 ```
 
 If the request would exceed the remaining budget, a `BudgetExceededError` is raised before the API call is made.
+
+---
+
+## Callbacks
+
+Handle budget events without try/except:
+
+```python
+client = BudgetedSession.openai(
+    budget_usd=5.00,
+    on_budget_exceeded=lambda e: print(f"Budget hit: {e}"),
+    on_warning=lambda w: print(f"{w['threshold']}% budget used"),
+)
+
+# Returns None instead of raising when budget is exceeded
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Hello"}]
+)
+```
+
+Warnings fire at 30%, 80%, and 95% utilization by default. Customize with `warning_thresholds=[50, 90]`.
 
 ---
 
@@ -42,7 +63,10 @@ Autonomous agents can accumulate significant API costs in minutes due to recursi
 
 ## Features
 
+* One-liner setup with `BudgetedSession.openai()`
 * Hard budget enforcement
+* Budget warning callbacks at configurable thresholds
+* Budget exceeded callback (no try/except needed)
 * Thread-safe reservation system
 * Compatible with all current OpenAI models including GPT-5.2 and o-series
 * Drop-in wrapper for the OpenAI Python client
@@ -53,17 +77,15 @@ Autonomous agents can accumulate significant API costs in minutes due to recursi
 
 ```python
 import concurrent.futures
-from openai import OpenAI
 from agent_budget import BudgetedSession, BudgetExceededError
 
-session = BudgetedSession(budget_usd=10.00)
-client = session.wrap_openai(OpenAI())
+client = BudgetedSession.openai(budget_usd=10.00)
 
 def agent_task(task_id):
     for _ in range(10):
         try:
             client.chat.completions.create(
-                model="gpt-5.2",
+                model="gpt-4o-mini",
                 messages=[{"role": "user", "content": f"Task {task_id}"}]
             )
         except BudgetExceededError:
@@ -77,13 +99,26 @@ All agents share the same budget pool.
 
 ---
 
+## Manual Setup
+
+If you need more control, use the two-step API:
+
+```python
+from openai import OpenAI
+from agent_budget import BudgetedSession
+
+session = BudgetedSession(budget_usd=5.00)
+client = session.wrap_openai(OpenAI())
+```
+
+---
+
 ## Batch Tier (Reduced Cost)
 
 If using OpenAI batch tier pricing:
 
 ```python
-session = BudgetedSession(budget_usd=5.00, tier="batch")
-client = session.wrap_openai(OpenAI())
+client = BudgetedSession.openai(budget_usd=5.00, tier="batch")
 ```
 
 The pricing estimator will use batch rates automatically.
@@ -94,29 +129,21 @@ The pricing estimator will use batch rates automatically.
 
 Models such as `o1`, `o3`, `o3-pro`, and `o4-mini` use internal reasoning tokens that increase cost relative to visible output. Allocate budget conservatively when using reasoning-focused models.
 
-Example:
-
-```python
-session = BudgetedSession(budget_usd=20.00)
-client = session.wrap_openai(OpenAI())
-
-client.chat.completions.create(
-    model="o3",
-    messages=[{"role": "user", "content": "Analyze this dataset"}]
-)
-```
-
 ---
 
 ## Public API
 
 ```python
-session = BudgetedSession(budget_usd=5.00)
+# One-liner setup
+client = BudgetedSession.openai(budget_usd=5.00)
 
-session.wrap_openai(client)
-session.get_total_spent()
-session.get_remaining_budget()
-session.get_summary()
+# Access session from client
+client.session.get_total_spent()
+client.session.get_remaining_budget()
+client.session.get_summary()
+client.session.get_budget()
+client.session.get_reserved()
+client.session.reset()
 ```
 
 ---
@@ -128,7 +155,8 @@ session.get_summary()
 3. Atomically reserve budget
 4. Execute API call if within limit
 5. Record actual cost from response
-6. Release reservation
+6. Check warning thresholds and fire callbacks
+7. Release reservation
 
 This guarantees:
 
@@ -158,5 +186,6 @@ Pricing tables should be kept aligned with official OpenAI API pricing.
 ```bash
 git clone <repo>
 cd agent-budget
-pip install -e ".[
+pip install -e ".[dev]"
+pytest
 ```
