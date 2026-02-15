@@ -1,6 +1,6 @@
 """Main entry point for budget-controlled OpenAI API sessions."""
 
-from typing import Any, Optional
+from typing import Any, Callable, List, Optional
 
 from .tracking.tracker import SpendTracker
 from .cost.pricing import PricingTable
@@ -8,47 +8,44 @@ from .cost.estimator import CostEstimator
 from .cost.calculator import CostCalculator
 from .wrappers.openai import OpenAIClientWrapper
 
+DEFAULT_WARNING_THRESHOLDS = [30, 80, 95]
+
 
 class BudgetedSession:
     """Manages budget tracking across multiple OpenAI API calls.
 
     This is the main entry point for using the agent-budget library.
-    Create a session with a budget limit, wrap your OpenAI client, and
-    all API calls will be automatically budget-enforced.
 
-    Example:
+    Quick start (one-liner):
+        >>> from agent_budget import BudgetedSession
+        >>>
+        >>> client = BudgetedSession.openai(
+        ...     budget_usd=5.00,
+        ...     on_budget_exceeded=lambda e: print(f"Budget hit: {e}"),
+        ...     on_warning=lambda w: print(f"{w['threshold']}% budget used"),
+        ... )
+        >>> response = client.chat.completions.create(
+        ...     model="gpt-4o-mini",
+        ...     messages=[{"role": "user", "content": "Hello!"}]
+        ... )
+        >>> print(client.session.get_summary())
+
+    Manual setup:
         >>> from openai import OpenAI
         >>> from agent_budget import BudgetedSession
         >>>
-        >>> # Create session with $5 budget
         >>> session = BudgetedSession(budget_usd=5.00)
-        >>>
-        >>> # Wrap your OpenAI client
         >>> client = session.wrap_openai(OpenAI())
-        >>>
-        >>> # Make API calls - budget is automatically enforced
-        >>> response = client.chat.completions.create(
-        ...     model="gpt-4o-mini",
-        ...     max_tokens=100,
-        ...     messages=[{"role": "user", "content": "Hello!"}]
-        ... )
-        >>>
-        >>> # Check spending
-        >>> print(f"Spent: ${session.get_total_spent():.4f}")
-        >>> print(f"Remaining: ${session.get_remaining_budget():.4f}")
-
-    Attributes:
-        _tracker: SpendTracker for thread-safe budget tracking
-        _pricing: PricingTable with model pricing data
-        _estimator: CostEstimator for pre-call estimates
-        _calculator: CostCalculator for post-call actual costs
     """
 
     def __init__(
         self,
         budget_usd: float,
         pricing_config: Optional[str] = None,
-        tier: str = "standard"
+        tier: str = "standard",
+        on_budget_exceeded: Optional[Callable] = None,
+        on_warning: Optional[Callable] = None,
+        warning_thresholds: Optional[List[int]] = None,
     ) -> None:
         """Initialize a budgeted session.
 
@@ -57,7 +54,14 @@ class BudgetedSession:
             pricing_config: Optional path to custom pricing JSON file.
                           If None, uses default pricing from package.
             tier: Pricing tier to use ("standard" or "batch").
-                 Default is "standard". Use "batch" for Batch API calls.
+            on_budget_exceeded: Optional callback when budget is exceeded.
+                If set, called with the BudgetExceededError and create()
+                returns None instead of raising.
+            on_warning: Optional callback when utilization crosses a threshold.
+                Called with a dict: {"threshold": int, "spent": float,
+                "remaining": float, "budget": float}.
+            warning_thresholds: Utilization % levels that trigger on_warning.
+                Defaults to [30, 80, 95].
 
         Raises:
             ValueError: If budget is negative
@@ -68,6 +72,58 @@ class BudgetedSession:
         self._estimator = CostEstimator(self._pricing)
         self._calculator = CostCalculator(self._pricing)
         self._tier = tier
+        self._on_budget_exceeded = on_budget_exceeded
+        self._on_warning = on_warning
+        self._warning_thresholds = sorted(warning_thresholds or DEFAULT_WARNING_THRESHOLDS)
+        self._fired_thresholds: set = set()
+
+    @classmethod
+    def openai(
+        cls,
+        budget_usd: float,
+        api_key: Optional[str] = None,
+        tier: str = "standard",
+        on_budget_exceeded: Optional[Callable] = None,
+        on_warning: Optional[Callable] = None,
+        warning_thresholds: Optional[List[int]] = None,
+        **openai_kwargs: Any,
+    ) -> OpenAIClientWrapper:
+        """One-liner: create a budget-enforced OpenAI client.
+
+        Creates a BudgetedSession and wraps a new OpenAI client in one step.
+        Uses OPENAI_API_KEY from environment if api_key is not provided.
+
+        Args:
+            budget_usd: Total budget limit in USD.
+            api_key: Optional OpenAI API key. If None, uses env var.
+            tier: Pricing tier ("standard" or "batch").
+            on_budget_exceeded: Optional callback when budget is exceeded.
+            on_warning: Optional callback at utilization thresholds.
+            warning_thresholds: Utilization % levels for warnings.
+                Defaults to [30, 80, 95].
+            **openai_kwargs: Extra kwargs passed to OpenAI() constructor.
+
+        Returns:
+            Wrapped OpenAI client with budget enforcement.
+            Access the session via client.session.
+        """
+        from openai import OpenAI
+
+        session = cls(
+            budget_usd=budget_usd,
+            tier=tier,
+            on_budget_exceeded=on_budget_exceeded,
+            on_warning=on_warning,
+            warning_thresholds=warning_thresholds,
+        )
+
+        client_kwargs = dict(openai_kwargs)
+        if api_key is not None:
+            client_kwargs["api_key"] = api_key
+
+        wrapped = session.wrap_openai(OpenAI(**client_kwargs))
+        wrapped.session = session
+        return wrapped
 
     def wrap_openai(self, client: Any, tier: Optional[str] = None) -> OpenAIClientWrapper:
         """Wrap an OpenAI client with budget enforcement.
@@ -83,9 +139,6 @@ class BudgetedSession:
         Example:
             >>> from openai import OpenAI
             >>> client = session.wrap_openai(OpenAI())
-            >>>
-            >>> # Or with batch pricing
-            >>> batch_client = session.wrap_openai(OpenAI(), tier="batch")
         """
         effective_tier = tier if tier is not None else self._tier
 
@@ -94,7 +147,11 @@ class BudgetedSession:
             tracker=self._tracker,
             estimator=self._estimator,
             calculator=self._calculator,
-            tier=effective_tier
+            tier=effective_tier,
+            on_budget_exceeded=self._on_budget_exceeded,
+            on_warning=self._on_warning,
+            warning_thresholds=self._warning_thresholds,
+            fired_thresholds=self._fired_thresholds,
         )
 
     def get_total_spent(self) -> float:

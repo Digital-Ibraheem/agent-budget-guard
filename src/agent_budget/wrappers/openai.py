@@ -1,9 +1,11 @@
 """OpenAI client wrappers with budget enforcement."""
 
-from typing import Any
+import threading
+from typing import Any, Callable, List, Optional, Set
 
 from ..cost.estimator import CostEstimator
 from ..cost.calculator import CostCalculator
+from ..exceptions import BudgetExceededError
 from ..tracking.tracker import SpendTracker
 
 
@@ -16,47 +18,53 @@ class CompletionsWrapper:
         tracker: SpendTracker,
         estimator: CostEstimator,
         calculator: CostCalculator,
-        tier: str = "standard"
+        tier: str = "standard",
+        on_budget_exceeded: Optional[Callable] = None,
+        on_warning: Optional[Callable] = None,
+        warning_thresholds: Optional[List[int]] = None,
+        fired_thresholds: Optional[Set[int]] = None,
     ) -> None:
-        """Initialize CompletionsWrapper.
-
-        Args:
-            original_completions: Original client.chat.completions object
-            tracker: SpendTracker for budget enforcement
-            estimator: CostEstimator for pre-call estimation
-            calculator: CostCalculator for post-call actual cost
-            tier: Pricing tier to use ("standard" or "batch")
-        """
         self._original = original_completions
         self._tracker = tracker
         self._estimator = estimator
         self._calculator = calculator
         self._tier = tier
+        self._on_budget_exceeded = on_budget_exceeded
+        self._on_warning = on_warning
+        self._warning_thresholds = warning_thresholds or []
+        self._fired_thresholds = fired_thresholds if fired_thresholds is not None else set()
+        self._threshold_lock = threading.Lock()
+
+    def _check_warnings(self) -> None:
+        """Fire warning callbacks for newly crossed utilization thresholds."""
+        if not self._on_warning or not self._warning_thresholds:
+            return
+
+        budget = self._tracker.get_budget()
+        if budget <= 0:
+            return
+
+        spent = self._tracker.get_spent()
+        reserved = self._tracker.get_reserved()
+        utilization = (spent + reserved) / budget * 100
+
+        with self._threshold_lock:
+            for threshold in self._warning_thresholds:
+                if utilization >= threshold and threshold not in self._fired_thresholds:
+                    self._fired_thresholds.add(threshold)
+                    self._on_warning({
+                        "threshold": threshold,
+                        "spent": spent,
+                        "remaining": budget - spent - reserved,
+                        "budget": budget,
+                    })
 
     def create(self, **kwargs: Any) -> Any:
         """Budget-enforced version of chat.completions.create().
 
-        This method:
-        1. Estimates the cost before the API call
-        2. Checks and reserves budget atomically
-        3. Makes the actual API call if budget allows
-        4. Calculates actual cost from response
-        5. Commits actual cost and releases reservation
-        6. Returns the response to the caller
-
-        If any step fails, the reservation is rolled back.
-
-        Args:
-            **kwargs: Arguments to pass to OpenAI chat.completions.create()
-
-        Returns:
-            OpenAI ChatCompletion response
-
-        Raises:
-            BudgetExceededError: If estimated cost exceeds remaining budget
-            Any exceptions from the underlying OpenAI API call
+        If on_budget_exceeded callback is set, returns None instead of
+        raising BudgetExceededError.
         """
-        # Extract parameters for cost estimation
         model = kwargs.get("model")
         messages = kwargs.get("messages", [])
         max_tokens = kwargs.get("max_tokens")
@@ -70,8 +78,13 @@ class CompletionsWrapper:
         )
 
         # STEP 2: Atomic budget check + reserve
-        # This will raise BudgetExceededError if budget insufficient
-        reservation_id = self._tracker.check_and_reserve(estimated_cost)
+        try:
+            reservation_id = self._tracker.check_and_reserve(estimated_cost)
+        except BudgetExceededError as e:
+            if self._on_budget_exceeded:
+                self._on_budget_exceeded(e)
+                return None
+            raise
 
         try:
             # STEP 3: Make actual API call
@@ -85,11 +98,13 @@ class CompletionsWrapper:
             # STEP 5: Commit actual cost, release reservation
             self._tracker.commit(reservation_id, actual_cost)
 
-            # STEP 6: Return response to caller
+            # STEP 6: Check warning thresholds
+            self._check_warnings()
+
+            # STEP 7: Return response to caller
             return response
 
-        except Exception as e:
-            # Rollback reservation on any error
+        except Exception:
             self._tracker.rollback(reservation_id)
             raise
 
@@ -103,57 +118,49 @@ class ChatWrapper:
         tracker: SpendTracker,
         estimator: CostEstimator,
         calculator: CostCalculator,
-        tier: str = "standard"
+        tier: str = "standard",
+        on_budget_exceeded: Optional[Callable] = None,
+        on_warning: Optional[Callable] = None,
+        warning_thresholds: Optional[List[int]] = None,
+        fired_thresholds: Optional[Set[int]] = None,
     ) -> None:
-        """Initialize ChatWrapper.
-
-        Args:
-            original_chat: Original client.chat object
-            tracker: SpendTracker for budget enforcement
-            estimator: CostEstimator for pre-call estimation
-            calculator: CostCalculator for post-call actual cost
-            tier: Pricing tier to use
-        """
         self._original = original_chat
         self._tracker = tracker
         self._estimator = estimator
         self._calculator = calculator
         self._tier = tier
+        self._on_budget_exceeded = on_budget_exceeded
+        self._on_warning = on_warning
+        self._warning_thresholds = warning_thresholds
+        self._fired_thresholds = fired_thresholds
 
     @property
     def completions(self) -> CompletionsWrapper:
-        """Return wrapper for completions endpoint.
-
-        Returns:
-            CompletionsWrapper that intercepts create() calls
-        """
         return CompletionsWrapper(
             self._original.completions,
             self._tracker,
             self._estimator,
             self._calculator,
-            self._tier
+            self._tier,
+            on_budget_exceeded=self._on_budget_exceeded,
+            on_warning=self._on_warning,
+            warning_thresholds=self._warning_thresholds,
+            fired_thresholds=self._fired_thresholds,
         )
 
 
 class OpenAIClientWrapper:
     """Main wrapper that mimics OpenAI client interface.
 
-    This wraps an OpenAI client instance and provides the same interface,
-    but with budget enforcement on all API calls.
-
     Example:
-        >>> from openai import OpenAI
         >>> from agent_budget import BudgetedSession
         >>>
-        >>> session = BudgetedSession(budget_usd=5.00)
-        >>> client = session.wrap_openai(OpenAI())
-        >>>
-        >>> # Use like normal OpenAI client, but budget-protected
+        >>> client = BudgetedSession.openai(budget_usd=5.00)
         >>> response = client.chat.completions.create(
         ...     model="gpt-4o-mini",
         ...     messages=[{"role": "user", "content": "Hello!"}]
         ... )
+        >>> print(client.session.get_summary())
     """
 
     def __init__(
@@ -162,49 +169,37 @@ class OpenAIClientWrapper:
         tracker: SpendTracker,
         estimator: CostEstimator,
         calculator: CostCalculator,
-        tier: str = "standard"
+        tier: str = "standard",
+        on_budget_exceeded: Optional[Callable] = None,
+        on_warning: Optional[Callable] = None,
+        warning_thresholds: Optional[List[int]] = None,
+        fired_thresholds: Optional[Set[int]] = None,
     ) -> None:
-        """Initialize OpenAIClientWrapper.
-
-        Args:
-            client: Original OpenAI client instance
-            tracker: SpendTracker for budget enforcement
-            estimator: CostEstimator for pre-call estimation
-            calculator: CostCalculator for post-call actual cost
-            tier: Pricing tier to use ("standard" or "batch")
-        """
         self._client = client
         self._tracker = tracker
         self._estimator = estimator
         self._calculator = calculator
         self._tier = tier
+        self._on_budget_exceeded = on_budget_exceeded
+        self._on_warning = on_warning
+        self._warning_thresholds = warning_thresholds
+        self._fired_thresholds = fired_thresholds
+        self.session = None  # set by BudgetedSession.openai()
 
     @property
     def chat(self) -> ChatWrapper:
-        """Return wrapper for chat endpoint.
-
-        Returns:
-            ChatWrapper that provides access to completions
-        """
         return ChatWrapper(
             self._client.chat,
             self._tracker,
             self._estimator,
             self._calculator,
-            self._tier
+            self._tier,
+            on_budget_exceeded=self._on_budget_exceeded,
+            on_warning=self._on_warning,
+            warning_thresholds=self._warning_thresholds,
+            fired_thresholds=self._fired_thresholds,
         )
 
-    # Provide access to other client attributes/methods
     def __getattr__(self, name: str) -> Any:
-        """Forward attribute access to underlying client.
-
-        This allows accessing other OpenAI client features like
-        embeddings, images, etc. (not budget-wrapped).
-
-        Args:
-            name: Attribute name
-
-        Returns:
-            Attribute from underlying client
-        """
+        """Forward attribute access to underlying client."""
         return getattr(self._client, name)
