@@ -1,0 +1,119 @@
+{
+  "version": "2026-02",
+  "provider": "openai",
+  "notes": {
+    "pricing_unit": "usd_per_1k_tokens",
+    "tiers_included": ["standard", "batch"],
+    "source": "https://developers.openai.com/api/docs/pricing/"
+  },
+  "models": {
+    "gpt-5.2": {
+      "standard": { "input_price_per_1k": 0.00175, "cached_input_price_per_1k": 0.000175, "output_price_per_1k": 0.014 },
+      "batch":    { "input_price_per_1k": 0.000875, "cached_input_price_per_1k": 0.0000875, "output_price_per_1k": 0.007 },
+      "context_window": 400000,
+      "max_output_tokens": 128000
+    },
+    "gpt-5.1": {
+      "standard": { "input_price_per_1k": 0.00125, "cached_input_price_per_1k": 0.000125, "output_price_per_1k": 0.01 },
+      "batch":    { "input_price_per_1k": 0.000625, "cached_input_price_per_1k": 0.0000625, "output_price_per_1k": 0.005 },
+      "context_window": 400000,
+      "max_output_tokens": 128000
+    },
+    "gpt-5-mini": {
+      "standard": { "input_price_per_1k": 0.00025, "cached_input_price_per_1k": 0.000025, "output_price_per_1k": 0.002 },
+      "batch":    { "input_price_per_1k": 0.000125, "cached_input_price_per_1k": 0.0000125, "output_price_per_1k": 0.001 },
+      "context_window": 400000,
+      "max_output_tokens": 128000
+    },
+    "gpt-5-nano": {
+      "standard": { "input_price_per_1k": 0.00005, "cached_input_price_per_1k": 0.000005, "output_price_per_1k": 0.0004 },
+      "batch":    { "input_price_per_1k": 0.000025, "cached_input_price_per_1k": 0.0000025, "output_price_per_1k": 0.0002 },
+      "context_window": 400000,
+      "max_output_tokens": 128000
+    },
+
+    "gpt-5.2-pro": {
+      "standard": { "input_price_per_1k": 0.021, "output_price_per_1k": 0.168 },
+      "batch":    { "input_price_per_1k": 0.0105, "output_price_per_1k": 0.084 },
+      "context_window": 400000,
+      "max_output_tokens": 128000
+    },
+
+    "gpt-4.1": {
+      "standard": { "input_price_per_1k": 0.002, "cached_input_price_per_1k": 0.0005, "output_price_per_1k": 0.008 },
+      "batch":    { "input_price_per_1k": 0.001, "output_price_per_1k": 0.004 },
+      "context_window": 1047576,
+      "max_output_tokens": 32768
+    },
+    "gpt-4.1-mini": {
+      "standard": { "input_price_per_1k": 0.0004, "cached_input_price_per_1k": 0.0001, "output_price_per_1k": 0.0016 },
+      "batch":    { "input_price_per_1k": 0.0002, "output_price_per_1k": 0.0008 },
+      "context_window": 1047576,
+      "max_output_tokens": 32768
+    },
+    "gpt-4.1-nano": {
+      "standard": { "input_price_per_1k": 0.0001, "cached_input_price_per_1k": 0.000025, "output_price_per_1k": 0.0004 },
+      "batch":    { "input_price_per_1k": 0.00005, "output_price_per_1k": 0.0002 }
+    },
+
+    "gpt-4o": {
+      "standard": { "input_price_per_1k": 0.0025, "cached_input_price_per_1k": 0.00125, "output_price_per_1k": 0.01 },
+      "batch":    { "input_price_per_1k": 0.00125, "output_price_per_1k": 0.005 },
+      "context_window": 128000,
+      "max_output_tokens": 16384
+    },
+    "gpt-4o-mini": {
+      "standard": { "input_price_per_1k": 0.00015, "cached_input_price_per_1k": 0.000075, "output_price_per_1k": 0.0006 },
+      "batch":    { "input_price_per_1k": 0.000075, "output_price_per_1k": 0.0003 }
+    },
+
+    "o3": {
+      "standard": { "input_price_per_1k": 0.002, "cached_input_price_per_1k": 0.0005, "output_price_per_1k": 0.008 },
+      "batch":    { "input_price_per_1k": 0.001, "cached_input_price_per_1k": 0.00025, "output_price_per_1k": 0.004 },
+      "context_window": 200000,
+      "max_output_tokens": 100000
+    },
+    "o3-pro": {
+      "standard": { "input_price_per_1k": 0.02, "output_price_per_1k": 0.08 },
+      "batch":    { "input_price_per_1k": 0.01, "output_price_per_1k": 0.04 },
+      "context_window": 200000,
+      "max_output_tokens": 100000
+    },
+    "o4-mini": {
+      "standard": { "input_price_per_1k": 0.0011, "cached_input_price_per_1k": 0.000275, "output_price_per_1k": 0.0044 },
+      "batch":    { "input_price_per_1k": 0.00055, "output_price_per_1k": 0.0022 },
+      "context_window": 200000,
+      "max_output_tokens": 100000
+    },
+
+    "o1": {
+      "standard": { "input_price_per_1k": 0.015, "cached_input_price_per_1k": 0.0075, "output_price_per_1k": 0.06 },
+      "batch":    { "input_price_per_1k": 0.0075, "output_price_per_1k": 0.03 }
+    },
+    "o1-pro": {
+      "standard": { "input_price_per_1k": 0.15, "output_price_per_1k": 0.6 },
+      "batch":    { "input_price_per_1k": 0.075, "output_price_per_1k": 0.3 }
+    },
+
+    "gpt-4-turbo": {
+      "standard": { "input_price_per_1k": 0.01, "output_price_per_1k": 0.03 },
+      "batch":    { "input_price_per_1k": 0.005, "output_price_per_1k": 0.015 },
+      "context_window": 128000,
+      "max_output_tokens": 4096,
+      "notes": "alias for gpt-4-turbo-2024-04-09 in pricing tables"
+    },
+    "gpt-4": {
+      "standard": { "input_price_per_1k": 0.03, "output_price_per_1k": 0.06 },
+      "batch":    { "input_price_per_1k": 0.015, "output_price_per_1k": 0.03 }
+    },
+    "gpt-3.5-turbo": {
+      "standard": { "input_price_per_1k": 0.0005, "output_price_per_1k": 0.0015 },
+      "batch":    { "input_price_per_1k": 0.00025, "output_price_per_1k": 0.00075 }
+    }
+  },
+  "model_aliases": {
+    "gpt-4-0613": "gpt-4",
+    "gpt-4-turbo-preview": "gpt-4-turbo",
+    "gpt-3.5-turbo-0125": "gpt-3.5-turbo"
+  }
+}
