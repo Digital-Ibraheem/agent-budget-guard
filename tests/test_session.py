@@ -122,3 +122,93 @@ def test_batch_tier():
 
     assert wrapped is not None
     assert wrapped._tier == "batch"
+
+
+def test_on_budget_exceeded_callback():
+    """Test that callback is called instead of raising."""
+    captured = []
+    session = BudgetedSession(
+        budget_usd=0.01,
+        on_budget_exceeded=lambda e: captured.append(e),
+    )
+
+    mock_client = Mock()
+    mock_completions = Mock()
+    mock_chat = Mock()
+    mock_chat.completions = mock_completions
+    mock_client.chat = mock_chat
+
+    wrapped = session.wrap_openai(mock_client)
+
+    # This would normally raise BudgetExceededError
+    result = wrapped.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "Write a long essay " * 100}],
+        max_tokens=1000
+    )
+
+    assert result is None
+    assert len(captured) == 1
+    assert isinstance(captured[0], BudgetExceededError)
+
+
+def test_on_warning_callback():
+    """Test that warning callbacks fire at thresholds."""
+    warnings = []
+    session = BudgetedSession(
+        budget_usd=0.001,
+        on_warning=lambda w: warnings.append(w),
+        warning_thresholds=[50],
+    )
+
+    mock_client = Mock()
+    mock_response = Mock()
+    mock_response.model = "gpt-4o-mini"
+    mock_response.usage = Mock()
+    mock_response.usage.prompt_tokens = 10
+    mock_response.usage.completion_tokens = 20
+
+    mock_completions = Mock()
+    mock_completions.create = Mock(return_value=mock_response)
+    mock_chat = Mock()
+    mock_chat.completions = mock_completions
+    mock_client.chat = mock_chat
+
+    wrapped = session.wrap_openai(mock_client)
+
+    # Make calls until warning fires
+    for _ in range(50):
+        try:
+            wrapped.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": "Hi"}],
+                max_tokens=20
+            )
+        except BudgetExceededError:
+            break
+
+    # Should have fired the 50% threshold exactly once
+    threshold_50 = [w for w in warnings if w["threshold"] == 50]
+    assert len(threshold_50) == 1
+    assert threshold_50[0]["budget"] == 0.001
+
+
+def test_openai_classmethod():
+    """Test the one-liner classmethod."""
+    from unittest.mock import patch
+
+    mock_openai_cls = Mock()
+    mock_openai_instance = Mock()
+    mock_openai_cls.return_value = mock_openai_instance
+
+    with patch("agent_budget.session.OpenAI", mock_openai_cls, create=True):
+        # Patch the import inside the classmethod
+        import agent_budget.session as session_mod
+        original_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+
+        with patch.dict("sys.modules", {"openai": Mock(OpenAI=mock_openai_cls)}):
+            client = BudgetedSession.openai(budget_usd=5.0, api_key="test-key")
+
+    assert client is not None
+    assert client.session is not None
+    assert client.session.get_budget() == 5.0
