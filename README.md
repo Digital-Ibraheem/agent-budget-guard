@@ -5,7 +5,7 @@ Hard spending limits for OpenAI API calls. Prevents runaway agent costs.
 ## Setup
 
 ```bash
-pip install git+https://github.com/Digital-Ibraheem/agentguard.git
+pip install agent-budget-guard
 ```
 
 Set your API key:
@@ -14,12 +14,12 @@ Set your API key:
 export OPENAI_API_KEY=sk-...
 ```
 
-Or pass it directly: `BudgetedSession.openai(budget_usd=5.00, api_key="sk-...")`
+Or pass it from env: `BudgetedSession.openai(budget_usd=5.00, api_key=os.getenv("OPENAI_API_KEY"))`
 
 ## Usage
 
 ```python
-from agentguard import BudgetedSession
+from agent_budget_guard import BudgetedSession
 
 client = BudgetedSession.openai(
     budget_usd=5.00,
@@ -61,7 +61,7 @@ All agents share the same budget pool. Thread-safe.
 
 ```python
 import concurrent.futures
-from agentguard import BudgetedSession, BudgetExceededError
+from agent_budget_guard import BudgetedSession, BudgetExceededError
 
 client = BudgetedSession.openai(budget_usd=10.00)
 

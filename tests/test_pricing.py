@@ -1,8 +1,8 @@
 """Test pricing table functionality."""
 
 import pytest
-from agentguard.cost.pricing import PricingTable
-from agentguard.exceptions import PricingDataError
+from agent_budget_guard.cost.pricing import PricingTable
+from agent_budget_guard.exceptions import PricingDataError
 
 
 def test_pricing_table_loads():

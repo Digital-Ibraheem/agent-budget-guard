@@ -14,10 +14,10 @@ DEFAULT_WARNING_THRESHOLDS = [30, 80, 95]
 class BudgetedSession:
     """Manages budget tracking across multiple OpenAI API calls.
 
-    This is the main entry point for using the agentguard library.
+    This is the main entry point for using the agent-budget-guard library.
 
     Quick start (one-liner):
-        >>> from agentguard import BudgetedSession
+        >>> from agent_budget_guard import BudgetedSession
         >>>
         >>> client = BudgetedSession.openai(
         ...     budget_usd=5.00,
@@ -32,7 +32,7 @@ class BudgetedSession:
 
     Manual setup:
         >>> from openai import OpenAI
-        >>> from agentguard import BudgetedSession
+        >>> from agent_budget_guard import BudgetedSession
         >>>
         >>> session = BudgetedSession(budget_usd=5.00)
         >>> client = session.wrap_openai(OpenAI())

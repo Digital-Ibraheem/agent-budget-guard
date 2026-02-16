@@ -2,8 +2,8 @@
 
 import pytest
 import threading
-from agentguard.tracking.tracker import SpendTracker
-from agentguard.exceptions import BudgetExceededError
+from agent_budget_guard.tracking.tracker import SpendTracker
+from agent_budget_guard.exceptions import BudgetExceededError
 
 
 def test_tracker_initialization():

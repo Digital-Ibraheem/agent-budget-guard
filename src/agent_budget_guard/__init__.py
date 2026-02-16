@@ -4,7 +4,7 @@ Prevents runaway AI agents from burning money by enforcing hard dollar
 budget limits on OpenAI API calls.
 
 Example:
-    >>> from agentguard import BudgetedSession
+    >>> from agent_budget_guard import BudgetedSession
     >>>
     >>> client = BudgetedSession.openai(budget_usd=5.00)
     >>> response = client.chat.completions.create(
