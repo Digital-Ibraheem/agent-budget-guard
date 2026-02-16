@@ -5,7 +5,7 @@ Hard spending limits for OpenAI API calls. Prevents runaway agent costs.
 ## Setup
 
 ```bash
-pip install git+https://github.com/Digital-Ibraheem/agent-budget.git
+pip install git+https://github.com/Digital-Ibraheem/agentguard.git
 ```
 
 Set your API key:
@@ -110,8 +110,8 @@ Batch tier pricing: `BudgetedSession.openai(budget_usd=5.00, tier="batch")`
 ## Development
 
 ```bash
-git clone https://github.com/Digital-Ibraheem/agent-budget.git
-cd agent-budget
+git clone https://github.com/Digital-Ibraheem/agentguard.git
+cd agentguard
 pip install -e ".[dev]"
 pytest
 ```

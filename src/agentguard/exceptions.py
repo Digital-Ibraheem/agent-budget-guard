@@ -1,4 +1,4 @@
-"""Custom exceptions for agent-budget library."""
+"""Custom exceptions for agentguard library."""
 
 
 class BudgetError(Exception):
