@@ -153,7 +153,7 @@ class OpenAIClientWrapper:
     """Main wrapper that mimics OpenAI client interface.
 
     Example:
-        >>> from agent_budget import BudgetedSession
+        >>> from agentguard import BudgetedSession
         >>>
         >>> client = BudgetedSession.openai(budget_usd=5.00)
         >>> response = client.chat.completions.create(

@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import Mock, MagicMock
-from agent_budget import BudgetedSession, BudgetExceededError
+from agentguard import BudgetedSession, BudgetExceededError
 
 
 def test_session_initialization():
@@ -201,9 +201,9 @@ def test_openai_classmethod():
     mock_openai_instance = Mock()
     mock_openai_cls.return_value = mock_openai_instance
 
-    with patch("agent_budget.session.OpenAI", mock_openai_cls, create=True):
+    with patch("agentguard.session.OpenAI", mock_openai_cls, create=True):
         # Patch the import inside the classmethod
-        import agent_budget.session as session_mod
+        import agentguard.session as session_mod
         original_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
 
         with patch.dict("sys.modules", {"openai": Mock(OpenAI=mock_openai_cls)}):

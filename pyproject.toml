@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "agent-budget"
+name = "agentguard"
 version = "0.1.0"
 description = "Budget-limited LLM API client wrapper to prevent runaway AI agent costs"
 readme = "README.md"
@@ -41,19 +41,19 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/agent-budget"
-Repository = "https://github.com/yourusername/agent-budget"
-Issues = "https://github.com/yourusername/agent-budget/issues"
+Homepage = "https://github.com/Digital-Ibraheem/agent-budget"
+Repository = "https://github.com/Digital-Ibraheem/agent-budget"
+Issues = "https://github.com/Digital-Ibraheem/agent-budget/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/agent_budget"]
+packages = ["src/agentguard"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --cov=agent_budget --cov-report=term-missing"
+addopts = "-v --cov=agentguard --cov-report=term-missing"
 
 [tool.black]
 line-length = 100

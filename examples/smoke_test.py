@@ -4,7 +4,7 @@ import os
 import sys
 from pathlib import Path
 
-from agent_budget import BudgetedSession
+from agentguard import BudgetedSession
 
 # Load .env from project root
 env_file = Path(__file__).resolve().parent.parent / ".env"

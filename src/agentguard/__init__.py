@@ -1,10 +1,10 @@
-"""Agent Budget - Budget-limited LLM API client wrapper.
+"""AgentGuard - Budget-limited LLM API client wrapper.
 
 Prevents runaway AI agents from burning money by enforcing hard dollar
 budget limits on OpenAI API calls.
 
 Example:
-    >>> from agent_budget import BudgetedSession
+    >>> from agentguard import BudgetedSession
     >>>
     >>> client = BudgetedSession.openai(budget_usd=5.00)
     >>> response = client.chat.completions.create(
