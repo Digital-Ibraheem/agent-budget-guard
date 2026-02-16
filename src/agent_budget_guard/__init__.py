@@ -1,4 +1,4 @@
-"""AgentGuard - Budget-limited LLM API client wrapper.
+"""Agent Budget Guard - Budget-limited LLM API client wrapper.
 
 Prevents runaway AI agents from burning money by enforcing hard dollar
 budget limits on OpenAI API calls.

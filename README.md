@@ -1,4 +1,4 @@
-# AgentGuard
+# Agent Budget Guard
 
 Hard spending limits for OpenAI API calls. Prevents runaway agent costs.
 
@@ -110,8 +110,8 @@ Batch tier pricing: `BudgetedSession.openai(budget_usd=5.00, tier="batch")`
 ## Development
 
 ```bash
-git clone https://github.com/Digital-Ibraheem/agentguard.git
-cd agentguard
+git clone https://github.com/Digital-Ibraheem/agent-budget-guard.git
+cd agent-budget-guard
 pip install -e ".[dev]"
 pytest
 ```

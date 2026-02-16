@@ -41,9 +41,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Digital-Ibraheem/agentguard"
-Repository = "https://github.com/Digital-Ibraheem/agentguard"
-Issues = "https://github.com/Digital-Ibraheem/agentguard/issues"
+Homepage = "https://github.com/Digital-Ibraheem/agent-budget-guard"
+Repository = "https://github.com/Digital-Ibraheem/agent-budget-guard"
+Issues = "https://github.com/Digital-Ibraheem/agent-budget-guard/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/agent_budget_guard"]
