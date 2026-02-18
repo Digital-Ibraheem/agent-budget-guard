@@ -7,17 +7,7 @@ Supports **OpenAI**, **Anthropic**, and **Google Gemini** — same interface, sa
 ## Setup
 
 ```bash
-# OpenAI only (default)
 pip install agent-budget-guard
-
-# With Anthropic support
-pip install "agent-budget-guard[anthropic]"
-
-# With Google Gemini support
-pip install "agent-budget-guard[google]"
-
-# All providers
-pip install "agent-budget-guard[all]"
 ```
 
 ## Usage

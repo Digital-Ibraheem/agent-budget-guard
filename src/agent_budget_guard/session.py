@@ -158,9 +158,6 @@ class BudgetedSession:
         Creates a BudgetedSession and wraps a new Anthropic client in one step.
         Uses ANTHROPIC_API_KEY from environment if api_key is not provided.
 
-        Requires the ``anthropic`` package:
-            pip install agent-budget-guard[anthropic]
-
         Args:
             budget_usd: Total budget limit in USD.
             api_key: Optional Anthropic API key. If None, uses env var.
@@ -214,9 +211,6 @@ class BudgetedSession:
 
         Creates a BudgetedSession and wraps a new google.genai.Client in one
         step. Uses GOOGLE_API_KEY from environment if api_key is not provided.
-
-        Requires the ``google-genai`` package:
-            pip install agent-budget-guard[google]
 
         Args:
             budget_usd: Total budget limit in USD.
