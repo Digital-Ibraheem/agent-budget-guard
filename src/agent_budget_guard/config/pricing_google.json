@@ -1,0 +1,64 @@
+{
+  "version": "2026-02",
+  "provider": "google",
+  "notes": {
+    "pricing_unit": "usd_per_1k_tokens",
+    "tiers_included": ["standard"],
+    "source": "https://ai.google.dev/gemini-api/docs/pricing"
+  },
+  "models": {
+    "gemini-2.0-flash": {
+      "standard": {
+        "input_price_per_1k": 0.0001,
+        "output_price_per_1k": 0.0004
+      },
+      "context_window": 1048576,
+      "max_output_tokens": 8192
+    },
+    "gemini-2.0-flash-lite": {
+      "standard": {
+        "input_price_per_1k": 0.000075,
+        "output_price_per_1k": 0.0003
+      },
+      "context_window": 1048576,
+      "max_output_tokens": 8192
+    },
+    "gemini-2.0-pro": {
+      "standard": {
+        "input_price_per_1k": 0.00125,
+        "output_price_per_1k": 0.005
+      },
+      "context_window": 2097152,
+      "max_output_tokens": 8192
+    },
+    "gemini-1.5-pro": {
+      "standard": {
+        "input_price_per_1k": 0.00125,
+        "output_price_per_1k": 0.005
+      },
+      "context_window": 2097152,
+      "max_output_tokens": 8192
+    },
+    "gemini-1.5-flash": {
+      "standard": {
+        "input_price_per_1k": 0.000075,
+        "output_price_per_1k": 0.0003
+      },
+      "context_window": 1048576,
+      "max_output_tokens": 8192
+    },
+    "gemini-1.5-flash-8b": {
+      "standard": {
+        "input_price_per_1k": 0.0000375,
+        "output_price_per_1k": 0.00015
+      },
+      "context_window": 1048576,
+      "max_output_tokens": 8192
+    }
+  },
+  "model_aliases": {
+    "gemini-2.0-flash-exp": "gemini-2.0-flash",
+    "gemini-pro": "gemini-1.5-pro",
+    "gemini-flash": "gemini-1.5-flash"
+  }
+}

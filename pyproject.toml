@@ -12,7 +12,7 @@ license = {text = "MIT"}
 authors = [
     {name = "Agent Budget Contributors"}
 ]
-keywords = ["openai", "llm", "budget", "cost-control", "api-wrapper", "ai-safety"]
+keywords = ["openai", "anthropic", "google", "gemini", "llm", "budget", "cost-control", "api-wrapper", "ai-safety"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -31,6 +31,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+anthropic = ["anthropic>=0.25.0"]
+google = ["google-genai>=1.0.0"]
+all = ["anthropic>=0.25.0", "google-genai>=1.0.0"]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",

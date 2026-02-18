@@ -1,0 +1,90 @@
+{
+  "version": "2026-02",
+  "provider": "anthropic",
+  "notes": {
+    "pricing_unit": "usd_per_1k_tokens",
+    "tiers_included": ["standard"],
+    "source": "https://www.anthropic.com/pricing"
+  },
+  "models": {
+    "claude-opus-4-6": {
+      "standard": {
+        "input_price_per_1k": 0.015,
+        "cached_input_price_per_1k": 0.0015,
+        "output_price_per_1k": 0.075
+      },
+      "context_window": 200000,
+      "max_output_tokens": 32000
+    },
+    "claude-sonnet-4-6": {
+      "standard": {
+        "input_price_per_1k": 0.003,
+        "cached_input_price_per_1k": 0.0003,
+        "output_price_per_1k": 0.015
+      },
+      "context_window": 200000,
+      "max_output_tokens": 64000
+    },
+    "claude-haiku-4-5": {
+      "standard": {
+        "input_price_per_1k": 0.0008,
+        "cached_input_price_per_1k": 0.00008,
+        "output_price_per_1k": 0.004
+      },
+      "context_window": 200000,
+      "max_output_tokens": 16000
+    },
+    "claude-3-5-sonnet": {
+      "standard": {
+        "input_price_per_1k": 0.003,
+        "cached_input_price_per_1k": 0.0003,
+        "output_price_per_1k": 0.015
+      },
+      "context_window": 200000,
+      "max_output_tokens": 8096
+    },
+    "claude-3-5-haiku": {
+      "standard": {
+        "input_price_per_1k": 0.0008,
+        "cached_input_price_per_1k": 0.00008,
+        "output_price_per_1k": 0.004
+      },
+      "context_window": 200000,
+      "max_output_tokens": 8096
+    },
+    "claude-3-opus": {
+      "standard": {
+        "input_price_per_1k": 0.015,
+        "cached_input_price_per_1k": 0.0015,
+        "output_price_per_1k": 0.075
+      },
+      "context_window": 200000,
+      "max_output_tokens": 4096
+    },
+    "claude-3-sonnet": {
+      "standard": {
+        "input_price_per_1k": 0.003,
+        "output_price_per_1k": 0.015
+      },
+      "context_window": 200000,
+      "max_output_tokens": 4096
+    },
+    "claude-3-haiku": {
+      "standard": {
+        "input_price_per_1k": 0.00025,
+        "cached_input_price_per_1k": 0.000025,
+        "output_price_per_1k": 0.00125
+      },
+      "context_window": 200000,
+      "max_output_tokens": 4096
+    }
+  },
+  "model_aliases": {
+    "claude-opus-latest": "claude-opus-4-6",
+    "claude-sonnet-latest": "claude-sonnet-4-6",
+    "claude-haiku-latest": "claude-haiku-4-5",
+    "claude-3-5-sonnet-latest": "claude-3-5-sonnet",
+    "claude-3-5-haiku-latest": "claude-3-5-haiku",
+    "claude-3-opus-latest": "claude-3-opus"
+  }
+}

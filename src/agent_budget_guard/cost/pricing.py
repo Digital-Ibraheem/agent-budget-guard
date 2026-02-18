@@ -8,9 +8,9 @@ from ..exceptions import PricingDataError
 
 
 class PricingTable:
-    """Manages OpenAI model pricing data.
+    """Manages LLM model pricing data for multiple providers.
 
-    Loads pricing information from pricing.json and provides lookup methods
+    Loads pricing information from a JSON file and provides lookup methods
     for model pricing, encodings, and metadata.
 
     Attributes:
@@ -19,19 +19,39 @@ class PricingTable:
         _aliases: Model alias mappings
     """
 
-    def __init__(self, config_path: Optional[str] = None) -> None:
+    _PROVIDER_CONFIG_FILES = {
+        "openai": "pricing.json",
+        "anthropic": "pricing_anthropic.json",
+        "google": "pricing_google.json",
+    }
+
+    def __init__(
+        self,
+        config_path: Optional[str] = None,
+        provider: str = "openai",
+    ) -> None:
         """Initialize PricingTable.
 
         Args:
-            config_path: Optional path to pricing JSON file. If None, uses default
-                        pricing.json from the package's config directory.
+            config_path: Optional path to a custom pricing JSON file. If None,
+                        the file is selected based on the ``provider`` argument.
+            provider: Which provider's built-in pricing to load when
+                     ``config_path`` is not given. One of "openai",
+                     "anthropic", or "google". Defaults to "openai" for
+                     backward compatibility.
 
         Raises:
             PricingDataError: If pricing file cannot be loaded or is malformed
         """
         if config_path is None:
-            # Use default pricing.json from package
-            config_path = Path(__file__).parent.parent / "config" / "pricing.json"
+            config_dir = Path(__file__).parent.parent / "config"
+            filename = self._PROVIDER_CONFIG_FILES.get(provider)
+            if filename is None:
+                raise PricingDataError(
+                    f"Unknown provider '{provider}'. "
+                    f"Supported: {', '.join(self._PROVIDER_CONFIG_FILES)}"
+                )
+            config_path = config_dir / filename
         else:
             config_path = Path(config_path)
 

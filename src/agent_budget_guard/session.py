@@ -1,4 +1,4 @@
-"""Main entry point for budget-controlled OpenAI API sessions."""
+"""Main entry point for budget-controlled LLM API sessions."""
 
 from typing import Any, Callable, List, Optional
 
@@ -12,21 +12,34 @@ DEFAULT_WARNING_THRESHOLDS = [30, 80, 95]
 
 
 class BudgetedSession:
-    """Manages budget tracking across multiple OpenAI API calls.
+    """Manages budget tracking across multiple LLM API calls.
 
     This is the main entry point for using the agent-budget-guard library.
+    Supports OpenAI, Anthropic, and Google Gemini providers.
 
     Quick start (one-liner):
         >>> from agent_budget_guard import BudgetedSession
         >>>
-        >>> client = BudgetedSession.openai(
-        ...     budget_usd=5.00,
-        ...     on_budget_exceeded=lambda e: print(f"Budget hit: {e}"),
-        ...     on_warning=lambda w: print(f"{w['threshold']}% budget used"),
-        ... )
+        >>> # OpenAI
+        >>> client = BudgetedSession.openai(budget_usd=5.00)
         >>> response = client.chat.completions.create(
         ...     model="gpt-4o-mini",
         ...     messages=[{"role": "user", "content": "Hello!"}]
+        ... )
+        >>>
+        >>> # Anthropic
+        >>> client = BudgetedSession.anthropic(budget_usd=5.00)
+        >>> response = client.messages.create(
+        ...     model="claude-sonnet-4-6",
+        ...     max_tokens=1024,
+        ...     messages=[{"role": "user", "content": "Hello!"}],
+        ... )
+        >>>
+        >>> # Google Gemini
+        >>> client = BudgetedSession.google(budget_usd=5.00)
+        >>> response = client.models.generate_content(
+        ...     model="gemini-2.0-flash",
+        ...     contents="Hello!",
         ... )
         >>> print(client.session.get_summary())
 
@@ -52,7 +65,7 @@ class BudgetedSession:
         Args:
             budget_usd: Total budget limit in USD (e.g., 5.00 for $5)
             pricing_config: Optional path to custom pricing JSON file.
-                          If None, uses default pricing from package.
+                          If None, uses default OpenAI pricing from package.
             tier: Pricing tier to use ("standard" or "batch").
             on_budget_exceeded: Optional callback when budget is exceeded.
                 If set, called with the BudgetExceededError and create()
@@ -76,6 +89,10 @@ class BudgetedSession:
         self._on_warning = on_warning
         self._warning_thresholds = sorted(warning_thresholds or DEFAULT_WARNING_THRESHOLDS)
         self._fired_thresholds: set = set()
+
+    # ------------------------------------------------------------------ #
+    # Factory class methods                                                #
+    # ------------------------------------------------------------------ #
 
     @classmethod
     def openai(
@@ -125,6 +142,124 @@ class BudgetedSession:
         wrapped.session = session
         return wrapped
 
+    @classmethod
+    def anthropic(
+        cls,
+        budget_usd: float,
+        api_key: Optional[str] = None,
+        tier: str = "standard",
+        on_budget_exceeded: Optional[Callable] = None,
+        on_warning: Optional[Callable] = None,
+        warning_thresholds: Optional[List[int]] = None,
+        **anthropic_kwargs: Any,
+    ) -> Any:
+        """One-liner: create a budget-enforced Anthropic client.
+
+        Creates a BudgetedSession and wraps a new Anthropic client in one step.
+        Uses ANTHROPIC_API_KEY from environment if api_key is not provided.
+
+        Requires the ``anthropic`` package:
+            pip install agent-budget-guard[anthropic]
+
+        Args:
+            budget_usd: Total budget limit in USD.
+            api_key: Optional Anthropic API key. If None, uses env var.
+            tier: Pricing tier ("standard").
+            on_budget_exceeded: Optional callback when budget is exceeded.
+            on_warning: Optional callback at utilization thresholds.
+            warning_thresholds: Utilization % levels for warnings.
+                Defaults to [30, 80, 95].
+            **anthropic_kwargs: Extra kwargs passed to anthropic.Anthropic().
+
+        Returns:
+            Wrapped Anthropic client with budget enforcement.
+            Access the session via client.session.
+        """
+        try:
+            import anthropic as anthropic_sdk
+        except ImportError as exc:
+            raise ImportError(
+                "The 'anthropic' package is required to use BudgetedSession.anthropic(). "
+                "Install it with: pip install agent-budget-guard[anthropic]"
+            ) from exc
+
+        session = cls(
+            budget_usd=budget_usd,
+            tier=tier,
+            on_budget_exceeded=on_budget_exceeded,
+            on_warning=on_warning,
+            warning_thresholds=warning_thresholds,
+        )
+
+        client_kwargs = dict(anthropic_kwargs)
+        if api_key is not None:
+            client_kwargs["api_key"] = api_key
+
+        wrapped = session.wrap_anthropic(anthropic_sdk.Anthropic(**client_kwargs))
+        wrapped.session = session
+        return wrapped
+
+    @classmethod
+    def google(
+        cls,
+        budget_usd: float,
+        api_key: Optional[str] = None,
+        tier: str = "standard",
+        on_budget_exceeded: Optional[Callable] = None,
+        on_warning: Optional[Callable] = None,
+        warning_thresholds: Optional[List[int]] = None,
+        **google_kwargs: Any,
+    ) -> Any:
+        """One-liner: create a budget-enforced Google Gemini client.
+
+        Creates a BudgetedSession and wraps a new google.genai.Client in one
+        step. Uses GOOGLE_API_KEY from environment if api_key is not provided.
+
+        Requires the ``google-genai`` package:
+            pip install agent-budget-guard[google]
+
+        Args:
+            budget_usd: Total budget limit in USD.
+            api_key: Optional Google API key. If None, uses env var.
+            tier: Pricing tier ("standard").
+            on_budget_exceeded: Optional callback when budget is exceeded.
+            on_warning: Optional callback at utilization thresholds.
+            warning_thresholds: Utilization % levels for warnings.
+                Defaults to [30, 80, 95].
+            **google_kwargs: Extra kwargs passed to google.genai.Client().
+
+        Returns:
+            Wrapped Google genai client with budget enforcement.
+            Access the session via client.session.
+        """
+        try:
+            from google import genai as google_genai
+        except ImportError as exc:
+            raise ImportError(
+                "The 'google-genai' package is required to use BudgetedSession.google(). "
+                "Install it with: pip install agent-budget-guard[google]"
+            ) from exc
+
+        session = cls(
+            budget_usd=budget_usd,
+            tier=tier,
+            on_budget_exceeded=on_budget_exceeded,
+            on_warning=on_warning,
+            warning_thresholds=warning_thresholds,
+        )
+
+        client_kwargs = dict(google_kwargs)
+        if api_key is not None:
+            client_kwargs["api_key"] = api_key
+
+        wrapped = session.wrap_google(google_genai.Client(**client_kwargs))
+        wrapped.session = session
+        return wrapped
+
+    # ------------------------------------------------------------------ #
+    # Wrap methods                                                         #
+    # ------------------------------------------------------------------ #
+
     def wrap_openai(self, client: Any, tier: Optional[str] = None) -> OpenAIClientWrapper:
         """Wrap an OpenAI client with budget enforcement.
 
@@ -153,6 +288,72 @@ class BudgetedSession:
             warning_thresholds=self._warning_thresholds,
             fired_thresholds=self._fired_thresholds,
         )
+
+    def wrap_anthropic(self, client: Any, tier: Optional[str] = None) -> Any:
+        """Wrap an Anthropic client with budget enforcement.
+
+        Args:
+            client: anthropic.Anthropic() client instance
+            tier: Optional pricing tier override. If None, uses session tier.
+
+        Returns:
+            Wrapped Anthropic client with budget enforcement
+
+        Example:
+            >>> import anthropic
+            >>> client = session.wrap_anthropic(anthropic.Anthropic())
+        """
+        from .providers.anthropic_provider import AnthropicProvider
+        from .wrappers.anthropic import AnthropicClientWrapper
+
+        effective_tier = tier if tier is not None else self._tier
+        provider = AnthropicProvider()
+
+        return AnthropicClientWrapper(
+            client=client,
+            tracker=self._tracker,
+            provider=provider,
+            tier=effective_tier,
+            on_budget_exceeded=self._on_budget_exceeded,
+            on_warning=self._on_warning,
+            warning_thresholds=self._warning_thresholds,
+            fired_thresholds=self._fired_thresholds,
+        )
+
+    def wrap_google(self, client: Any, tier: Optional[str] = None) -> Any:
+        """Wrap a Google genai client with budget enforcement.
+
+        Args:
+            client: google.genai.Client() instance
+            tier: Optional pricing tier override. If None, uses session tier.
+
+        Returns:
+            Wrapped Google genai client with budget enforcement
+
+        Example:
+            >>> from google import genai
+            >>> client = session.wrap_google(genai.Client())
+        """
+        from .providers.google_provider import GoogleProvider
+        from .wrappers.google import GoogleClientWrapper
+
+        effective_tier = tier if tier is not None else self._tier
+        provider = GoogleProvider()
+
+        return GoogleClientWrapper(
+            client=client,
+            tracker=self._tracker,
+            provider=provider,
+            tier=effective_tier,
+            on_budget_exceeded=self._on_budget_exceeded,
+            on_warning=self._on_warning,
+            warning_thresholds=self._warning_thresholds,
+            fired_thresholds=self._fired_thresholds,
+        )
+
+    # ------------------------------------------------------------------ #
+    # Budget introspection                                                 #
+    # ------------------------------------------------------------------ #
 
     def get_total_spent(self) -> float:
         """Get the total amount spent so far.
@@ -214,7 +415,7 @@ class BudgetedSession:
                 - spent: Amount spent in USD
                 - reserved: Amount reserved (in-flight calls) in USD
                 - remaining: Remaining budget in USD
-                - utilization: Percentage of budget used (spent + reserved)
+                - utilization_percent: Percentage of budget used (spent + reserved)
         """
         budget = self._tracker.get_budget()
         spent = self._tracker.get_spent()
@@ -228,5 +429,5 @@ class BudgetedSession:
             "spent": spent,
             "reserved": reserved,
             "remaining": remaining,
-            "utilization_percent": utilization
+            "utilization_percent": utilization,
         }
