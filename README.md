@@ -1,22 +1,28 @@
 # Agent Budget Guard
 
-Hard spending limits for OpenAI API calls. Prevents runaway agent costs.
+Hard spending limits for LLM API calls. Prevents runaway agent costs.
+
+Supports **OpenAI**, **Anthropic**, and **Google Gemini** — same interface, same thread-safety guarantees across all providers.
 
 ## Setup
 
 ```bash
+# OpenAI only (default)
 pip install agent-budget-guard
+
+# With Anthropic support
+pip install "agent-budget-guard[anthropic]"
+
+# With Google Gemini support
+pip install "agent-budget-guard[google]"
+
+# All providers
+pip install "agent-budget-guard[all]"
 ```
-
-Set your API key:
-
-```bash
-export OPENAI_API_KEY=sk-...
-```
-
-Or pass it from env: `BudgetedSession.openai(budget_usd=5.00, api_key=os.getenv("OPENAI_API_KEY"))`
 
 ## Usage
+
+### OpenAI
 
 ```python
 from agent_budget_guard import BudgetedSession
@@ -36,11 +42,74 @@ print(response.choices[0].message.content)
 print(client.session.get_summary())
 ```
 
-`client` works exactly like a normal OpenAI client — same `client.chat.completions.create()` interface. When spending would exceed your budget, the call is blocked before it hits the API.
+`client` works exactly like a normal OpenAI client — same `client.chat.completions.create()` interface.
+
+### Anthropic
+
+```python
+from agent_budget_guard import BudgetedSession
+
+client = BudgetedSession.anthropic(budget_usd=5.00)
+
+response = client.messages.create(
+    model="claude-sonnet-4-6",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Hello"}],
+)
+
+print(response.content[0].text)
+print(client.session.get_summary())
+```
+
+`client` works exactly like a normal `anthropic.Anthropic()` client.
+
+### Google Gemini
+
+```python
+from agent_budget_guard import BudgetedSession
+
+client = BudgetedSession.google(budget_usd=5.00)
+
+response = client.models.generate_content(
+    model="gemini-2.0-flash",
+    contents="Hello",
+)
+
+print(response.text)
+print(client.session.get_summary())
+```
+
+`client` works exactly like a normal `google.genai.Client()`.
+
+### API keys
+
+Set the standard environment variable for each provider:
+
+```bash
+export OPENAI_API_KEY=sk-...
+export ANTHROPIC_API_KEY=sk-ant-...
+export GOOGLE_API_KEY=...
+```
+
+Or pass `api_key=` directly to any factory method.
+
+### Manual wrapping
+
+If you already have a client instance, wrap it directly:
+
+```python
+import anthropic
+from agent_budget_guard import BudgetedSession
+
+session = BudgetedSession(budget_usd=5.00)
+client = session.wrap_anthropic(anthropic.Anthropic())
+```
+
+Same pattern works for `wrap_openai()` and `wrap_google()`.
 
 ## Callbacks
 
-**`on_budget_exceeded`** — Called when a request would exceed your budget. Makes `create()` return `None` instead of raising. Without it, a `BudgetExceededError` is raised.
+**`on_budget_exceeded`** — Called when a request would exceed your budget. Makes the call return `None` instead of raising. Without it, a `BudgetExceededError` is raised.
 
 **`on_warning`** — Called when utilization crosses a threshold. Fires at 30%, 80%, and 95% by default. Customize with `warning_thresholds=[50, 90]`. Each threshold fires once.
 
@@ -57,7 +126,7 @@ The callback receives a dict:
 
 ## Concurrent Agents
 
-All agents share the same budget pool. Thread-safe.
+All agents share the same budget pool. Thread-safe across all providers.
 
 ```python
 import concurrent.futures
@@ -85,7 +154,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
 2. Atomically reserves budget (thread-safe lock prevents race conditions)
 3. Makes the API call only if within budget
 4. Calculates actual cost from the response
-5. Commits actual cost and releases reservation
+5. Commits actual cost and releases the reservation
 6. Fires warning callbacks if utilization thresholds are crossed
 
 Guarantees `spent + reserved <= budget` at all times, even under concurrency.
@@ -103,9 +172,16 @@ client.session.reset()                  # reset to zero
 
 ## Supported Models
 
-GPT-5.2, GPT-5.1, GPT-5-mini, GPT-5-nano, GPT-4.1, GPT-4o, GPT-4o-mini, o1, o3, o3-pro, o4-mini, gpt-4-turbo, gpt-4, gpt-3.5-turbo
+### OpenAI
+GPT-5.2, GPT-5.1, GPT-5-mini, GPT-5-nano, GPT-4.1, GPT-4.1-mini, GPT-4.1-nano, GPT-4o, GPT-4o-mini, o1, o1-pro, o3, o3-pro, o4-mini, gpt-4-turbo, gpt-4, gpt-3.5-turbo
 
 Batch tier pricing: `BudgetedSession.openai(budget_usd=5.00, tier="batch")`
+
+### Anthropic
+claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5, claude-3-5-sonnet, claude-3-5-haiku, claude-3-opus, claude-3-sonnet, claude-3-haiku
+
+### Google Gemini
+gemini-2.0-flash, gemini-2.0-flash-lite, gemini-2.0-pro, gemini-1.5-pro, gemini-1.5-flash, gemini-1.5-flash-8b
 
 ## Development
 
