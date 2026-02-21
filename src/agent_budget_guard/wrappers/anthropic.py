@@ -55,6 +55,28 @@ class MessagesCreateWrapper:
                         "budget": budget,
                     })
 
+    def _anthropic_stream_generator(self, raw_stream: Any, reservation_id: str, model: str):
+        """Transparent generator that commits cost after message_delta event."""
+        input_tokens = 0
+        try:
+            for event in raw_stream:
+                yield event
+                if event.type == "message_start":
+                    input_tokens = event.message.usage.input_tokens
+                elif event.type == "message_delta":
+                    output_tokens = event.usage.output_tokens
+                    input_price = self._provider._pricing.get_input_price(model, tier=self._tier)
+                    output_price = self._provider._pricing.get_output_price(model, tier=self._tier)
+                    actual_cost = (
+                        (input_tokens / 1000.0) * input_price
+                        + (output_tokens / 1000.0) * output_price
+                    )
+                    self._tracker.commit(reservation_id, actual_cost)
+                    self._check_warnings()
+        finally:
+            # No-op if already committed; rolls back on early exit or exception
+            self._tracker.rollback(reservation_id)
+
     def create(self, **kwargs: Any) -> Any:
         """Budget-enforced version of client.messages.create().
 
@@ -81,6 +103,10 @@ class MessagesCreateWrapper:
             raise
 
         try:
+            if kwargs.get("stream"):
+                raw_stream = self._original.create(**kwargs)
+                return self._anthropic_stream_generator(raw_stream, reservation_id, model)
+
             response = self._original.create(**kwargs)
 
             actual_cost = self._provider.calculate_cost(response, tier=self._tier)

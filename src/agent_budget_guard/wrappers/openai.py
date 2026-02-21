@@ -59,6 +59,24 @@ class CompletionsWrapper:
                         "budget": budget,
                     })
 
+    def _openai_stream_generator(self, raw_stream: Any, reservation_id: str, model: str):
+        """Transparent generator that defers cost commit until usage data arrives."""
+        try:
+            for chunk in raw_stream:
+                yield chunk
+                if chunk.usage is not None:
+                    input_price = self._estimator._pricing.get_input_price(model, self._tier)
+                    output_price = self._estimator._pricing.get_output_price(model, self._tier)
+                    actual_cost = (
+                        (chunk.usage.prompt_tokens / 1000) * input_price
+                        + (chunk.usage.completion_tokens / 1000) * output_price
+                    )
+                    self._tracker.commit(reservation_id, actual_cost)
+                    self._check_warnings()
+        finally:
+            # No-op if already committed; rolls back on early exit or exception
+            self._tracker.rollback(reservation_id)
+
     def create(self, **kwargs: Any) -> Any:
         """Budget-enforced version of chat.completions.create().
 
@@ -88,6 +106,13 @@ class CompletionsWrapper:
 
         try:
             # STEP 3: Make actual API call
+            if kwargs.get("stream"):
+                # Auto-inject stream_options so usage appears in the final chunk
+                kwargs.setdefault("stream_options", {})
+                kwargs["stream_options"]["include_usage"] = True
+                raw_stream = self._original.create(**kwargs)
+                return self._openai_stream_generator(raw_stream, reservation_id, model)
+
             response = self._original.create(**kwargs)
 
             # STEP 4: Calculate actual cost from response

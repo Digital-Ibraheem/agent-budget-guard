@@ -111,6 +111,71 @@ class ModelsWrapper:
             self._tracker.rollback(reservation_id)
             raise
 
+    def _google_stream_generator(self, raw_stream: Any, reservation_id: str, model: str):
+        """Transparent generator that commits cost from the last chunk's usage_metadata."""
+        last_chunk = None
+        try:
+            for chunk in raw_stream:
+                yield chunk
+                last_chunk = chunk
+            # Stream completed normally — commit from last chunk
+            if last_chunk is not None:
+                actual_cost = self._provider.calculate_cost(
+                    last_chunk, tier=self._tier, model=model
+                )
+                self._tracker.commit(reservation_id, actual_cost)
+                self._check_warnings()
+        finally:
+            # No-op if already committed; rolls back on early exit or exception
+            self._tracker.rollback(reservation_id)
+
+    def generate_content_stream(self, model: str, contents: Any, **kwargs: Any) -> Any:
+        """Budget-enforced streaming version of client.models.generate_content_stream().
+
+        Args:
+            model: Gemini model name (e.g. "gemini-2.0-flash")
+            contents: Prompt content — string, list of strings, or list of
+                      Content dicts with "parts" key.
+            **kwargs: Extra args forwarded to the underlying SDK call.
+
+        If on_budget_exceeded callback is set, returns None instead of
+        raising BudgetExceededError.
+        """
+        messages = contents if contents is not None else []
+
+        max_tokens: Optional[int] = None
+        config = kwargs.get("config")
+        if config is not None:
+            if isinstance(config, dict):
+                max_tokens = config.get("max_output_tokens")
+            else:
+                max_tokens = getattr(config, "max_output_tokens", None)
+
+        estimated_cost = self._provider.estimate_cost(
+            messages=messages,
+            model=model,
+            max_tokens=max_tokens,
+            tier=self._tier,
+        )
+
+        try:
+            reservation_id = self._tracker.check_and_reserve(estimated_cost)
+        except BudgetExceededError as e:
+            if self._on_budget_exceeded:
+                self._on_budget_exceeded(e)
+                return None
+            raise
+
+        try:
+            raw_stream = self._original.generate_content_stream(
+                model=model, contents=contents, **kwargs
+            )
+            return self._google_stream_generator(raw_stream, reservation_id, model)
+
+        except Exception:
+            self._tracker.rollback(reservation_id)
+            raise
+
     def __getattr__(self, name: str) -> Any:
         """Forward all other client.models calls (count_tokens, etc.) unchanged."""
         return getattr(self._original, name)
