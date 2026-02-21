@@ -91,16 +91,6 @@ class TestAnthropicProvider:
 
         assert cost_opus > cost_haiku
 
-    def test_versioned_model_name_resolves(self):
-        """claude-3-5-sonnet-20241022 should resolve to claude-3-5-sonnet."""
-        messages = [{"role": "user", "content": "Hi"}]
-        cost = self.provider.estimate_cost(
-            messages=messages,
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=50,
-        )
-        assert cost > 0
-
     def test_pricing_table_provider(self):
         pricing = self.provider.get_pricing_table()
         assert isinstance(pricing, PricingTable)

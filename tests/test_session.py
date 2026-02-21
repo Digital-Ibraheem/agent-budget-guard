@@ -14,16 +14,6 @@ def test_session_initialization():
     assert session.get_remaining_budget() == 5.0
 
 
-def test_wrap_openai():
-    """Test wrapping OpenAI client."""
-    session = BudgetedSession(budget_usd=5.0)
-
-    mock_client = Mock()
-    wrapped = session.wrap_openai(mock_client)
-
-    assert wrapped is not None
-    assert hasattr(wrapped, 'chat')
-
 
 def test_budget_exceeded_on_estimate():
     """Test that budget exceeded error is raised on estimate."""
@@ -99,29 +89,55 @@ def test_get_summary():
 
 
 def test_reset():
-    """Test resetting session."""
-    session = BudgetedSession(budget_usd=10.0)
+    """After reset, spent returns to zero and the full budget is available again."""
+    session = BudgetedSession(budget_usd=5.0)
 
-    # Manually adjust tracker (simulating some spend)
-    session._tracker._spent = 3.0
+    mock_client = Mock()
+    mock_response = Mock()
+    mock_response.model = "gpt-4o-mini"
+    mock_response.usage = Mock()
+    mock_response.usage.prompt_tokens = 10
+    mock_response.usage.completion_tokens = 20
+    mock_client.chat.completions.create = Mock(return_value=mock_response)
 
-    assert session.get_total_spent() == 3.0
+    wrapped = session.wrap_openai(mock_client)
+    wrapped.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": "Hi"}],
+        max_tokens=20,
+    )
+
+    assert session.get_total_spent() > 0
 
     session.reset()
 
     assert session.get_total_spent() == 0.0
-    assert session.get_remaining_budget() == 10.0
+    assert session.get_reserved() == 0.0
+    assert session.get_remaining_budget() == 5.0
 
 
-def test_batch_tier():
-    """Test creating session with batch tier."""
-    session = BudgetedSession(budget_usd=5.0, tier="batch")
+def test_batch_tier_costs_less_than_standard():
+    """Batch tier should charge half the cost of standard for identical usage."""
+    mock_response = Mock()
+    mock_response.model = "gpt-5.2"
+    mock_response.usage = Mock()
+    mock_response.usage.prompt_tokens = 1000
+    mock_response.usage.completion_tokens = 1000
 
-    mock_client = Mock()
-    wrapped = session.wrap_openai(mock_client)
+    costs = {}
+    for tier in ("standard", "batch"):
+        session = BudgetedSession(budget_usd=5.0, tier=tier)
+        mock_client = Mock()
+        mock_client.chat.completions.create = Mock(return_value=mock_response)
+        wrapped = session.wrap_openai(mock_client)
+        wrapped.chat.completions.create(
+            model="gpt-5.2",
+            messages=[{"role": "user", "content": "Hi"}],
+        )
+        costs[tier] = session.get_total_spent()
 
-    assert wrapped is not None
-    assert wrapped._tier == "batch"
+    assert costs["batch"] < costs["standard"]
+    assert abs(costs["batch"] - costs["standard"] / 2) < 1e-10
 
 
 def test_on_budget_exceeded_callback():

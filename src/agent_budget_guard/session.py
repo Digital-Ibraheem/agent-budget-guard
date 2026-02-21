@@ -250,6 +250,149 @@ class BudgetedSession:
         wrapped.session = session
         return wrapped
 
+    @classmethod
+    def async_openai(
+        cls,
+        budget_usd: float,
+        api_key: Optional[str] = None,
+        tier: str = "standard",
+        on_budget_exceeded: Optional[Callable] = None,
+        on_warning: Optional[Callable] = None,
+        warning_thresholds: Optional[List[int]] = None,
+        **openai_kwargs: Any,
+    ) -> Any:
+        """One-liner: create a budget-enforced AsyncOpenAI client.
+
+        Args:
+            budget_usd: Total budget limit in USD.
+            api_key: Optional OpenAI API key. If None, uses env var.
+            tier: Pricing tier ("standard" or "batch").
+            on_budget_exceeded: Optional callback when budget is exceeded.
+            on_warning: Optional callback at utilization thresholds.
+            warning_thresholds: Utilization % levels for warnings.
+            **openai_kwargs: Extra kwargs passed to AsyncOpenAI() constructor.
+
+        Returns:
+            Wrapped AsyncOpenAI client. Use with await on each call.
+        """
+        from openai import AsyncOpenAI
+
+        session = cls(
+            budget_usd=budget_usd,
+            tier=tier,
+            on_budget_exceeded=on_budget_exceeded,
+            on_warning=on_warning,
+            warning_thresholds=warning_thresholds,
+        )
+
+        client_kwargs = dict(openai_kwargs)
+        if api_key is not None:
+            client_kwargs["api_key"] = api_key
+
+        wrapped = session.wrap_async_openai(AsyncOpenAI(**client_kwargs))
+        wrapped.session = session
+        return wrapped
+
+    @classmethod
+    def async_anthropic(
+        cls,
+        budget_usd: float,
+        api_key: Optional[str] = None,
+        tier: str = "standard",
+        on_budget_exceeded: Optional[Callable] = None,
+        on_warning: Optional[Callable] = None,
+        warning_thresholds: Optional[List[int]] = None,
+        **anthropic_kwargs: Any,
+    ) -> Any:
+        """One-liner: create a budget-enforced AsyncAnthropic client.
+
+        Args:
+            budget_usd: Total budget limit in USD.
+            api_key: Optional Anthropic API key. If None, uses env var.
+            tier: Pricing tier ("standard").
+            on_budget_exceeded: Optional callback when budget is exceeded.
+            on_warning: Optional callback at utilization thresholds.
+            warning_thresholds: Utilization % levels for warnings.
+            **anthropic_kwargs: Extra kwargs passed to AsyncAnthropic() constructor.
+
+        Returns:
+            Wrapped AsyncAnthropic client. Use with await on each call.
+        """
+        try:
+            import anthropic as anthropic_sdk
+        except ImportError as exc:
+            raise ImportError(
+                "The 'anthropic' package is required to use BudgetedSession.async_anthropic(). "
+                "Install it with: pip install agent-budget-guard[anthropic]"
+            ) from exc
+
+        session = cls(
+            budget_usd=budget_usd,
+            tier=tier,
+            on_budget_exceeded=on_budget_exceeded,
+            on_warning=on_warning,
+            warning_thresholds=warning_thresholds,
+        )
+
+        client_kwargs = dict(anthropic_kwargs)
+        if api_key is not None:
+            client_kwargs["api_key"] = api_key
+
+        wrapped = session.wrap_async_anthropic(anthropic_sdk.AsyncAnthropic(**client_kwargs))
+        wrapped.session = session
+        return wrapped
+
+    @classmethod
+    def async_google(
+        cls,
+        budget_usd: float,
+        api_key: Optional[str] = None,
+        tier: str = "standard",
+        on_budget_exceeded: Optional[Callable] = None,
+        on_warning: Optional[Callable] = None,
+        warning_thresholds: Optional[List[int]] = None,
+        **google_kwargs: Any,
+    ) -> Any:
+        """One-liner: create a budget-enforced async Google Gemini client.
+
+        Uses client.aio.models internally for async API calls.
+
+        Args:
+            budget_usd: Total budget limit in USD.
+            api_key: Optional Google API key. If None, uses env var.
+            tier: Pricing tier ("standard").
+            on_budget_exceeded: Optional callback when budget is exceeded.
+            on_warning: Optional callback at utilization thresholds.
+            warning_thresholds: Utilization % levels for warnings.
+            **google_kwargs: Extra kwargs passed to google.genai.Client() constructor.
+
+        Returns:
+            Wrapped Google client with async budget enforcement.
+        """
+        try:
+            from google import genai as google_genai
+        except ImportError as exc:
+            raise ImportError(
+                "The 'google-genai' package is required to use BudgetedSession.async_google(). "
+                "Install it with: pip install agent-budget-guard[google]"
+            ) from exc
+
+        session = cls(
+            budget_usd=budget_usd,
+            tier=tier,
+            on_budget_exceeded=on_budget_exceeded,
+            on_warning=on_warning,
+            warning_thresholds=warning_thresholds,
+        )
+
+        client_kwargs = dict(google_kwargs)
+        if api_key is not None:
+            client_kwargs["api_key"] = api_key
+
+        wrapped = session.wrap_async_google(google_genai.Client(**client_kwargs))
+        wrapped.session = session
+        return wrapped
+
     # ------------------------------------------------------------------ #
     # Wrap methods                                                         #
     # ------------------------------------------------------------------ #

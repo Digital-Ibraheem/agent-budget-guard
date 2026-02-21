@@ -5,12 +5,6 @@ from agent_budget_guard.cost.pricing import PricingTable
 from agent_budget_guard.exceptions import PricingDataError
 
 
-def test_pricing_table_loads():
-    """Test that pricing table loads successfully."""
-    pricing = PricingTable()
-    assert pricing is not None
-
-
 def test_get_input_price():
     """Test getting input price for a model."""
     pricing = PricingTable()

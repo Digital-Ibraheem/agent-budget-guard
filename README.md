@@ -82,6 +82,65 @@ for chunk in client.models.generate_content_stream(
     print(chunk.text, end="")
 ```
 
+## Async
+
+Drop-in async support for all three providers. Use `async_openai()`, `async_anthropic()`, and `async_google()` instead of the sync factory methods:
+
+```python
+# OpenAI
+client = BudgetedSession.async_openai(budget_usd=5.00)
+
+response = await client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Hello"}],
+)
+
+async for chunk in await client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Hello"}],
+    stream=True,
+):
+    print(chunk.choices[0].delta.content or "", end="")
+```
+
+```python
+# Anthropic
+client = BudgetedSession.async_anthropic(budget_usd=5.00)
+
+response = await client.messages.create(
+    model="claude-sonnet-4-6",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Hello"}],
+)
+```
+
+```python
+# Google — uses client.aio.models internally
+client = BudgetedSession.async_google(budget_usd=5.00)
+
+response = await client.models.generate_content(
+    model="gemini-2.0-flash",
+    contents="Hello",
+)
+
+async for chunk in await client.models.generate_content_stream(
+    model="gemini-2.0-flash",
+    contents="Hello",
+):
+    print(chunk.text, end="")
+```
+
+Or wrap an existing async client:
+
+```python
+from openai import AsyncOpenAI
+
+session = BudgetedSession(budget_usd=5.00)
+client = session.wrap_async_openai(AsyncOpenAI())
+```
+
+Same pattern for `wrap_async_anthropic()` and `wrap_async_google()`.
+
 ## API Keys
 
 Set the standard environment variable for each provider:
