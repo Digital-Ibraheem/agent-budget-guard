@@ -314,6 +314,88 @@ class BudgetedSession:
             fired_thresholds=self._fired_thresholds,
         )
 
+    def wrap_async_openai(self, client: Any, tier: Optional[str] = None) -> Any:
+        """Wrap an openai.AsyncOpenAI() client with budget enforcement.
+
+        Args:
+            client: AsyncOpenAI client instance
+            tier: Optional pricing tier override. If None, uses session tier.
+
+        Returns:
+            Wrapped async OpenAI client with budget enforcement
+        """
+        from .wrappers.openai_async import AsyncOpenAIClientWrapper
+
+        effective_tier = tier if tier is not None else self._tier
+
+        return AsyncOpenAIClientWrapper(
+            client=client,
+            tracker=self._tracker,
+            estimator=self._estimator,
+            calculator=self._calculator,
+            tier=effective_tier,
+            on_budget_exceeded=self._on_budget_exceeded,
+            on_warning=self._on_warning,
+            warning_thresholds=self._warning_thresholds,
+            fired_thresholds=self._fired_thresholds,
+        )
+
+    def wrap_async_anthropic(self, client: Any, tier: Optional[str] = None) -> Any:
+        """Wrap an anthropic.AsyncAnthropic() client with budget enforcement.
+
+        Args:
+            client: AsyncAnthropic client instance
+            tier: Optional pricing tier override. If None, uses session tier.
+
+        Returns:
+            Wrapped async Anthropic client with budget enforcement
+        """
+        from .providers.anthropic_provider import AnthropicProvider
+        from .wrappers.anthropic_async import AsyncAnthropicClientWrapper
+
+        effective_tier = tier if tier is not None else self._tier
+        provider = AnthropicProvider()
+
+        return AsyncAnthropicClientWrapper(
+            client=client,
+            tracker=self._tracker,
+            provider=provider,
+            tier=effective_tier,
+            on_budget_exceeded=self._on_budget_exceeded,
+            on_warning=self._on_warning,
+            warning_thresholds=self._warning_thresholds,
+            fired_thresholds=self._fired_thresholds,
+        )
+
+    def wrap_async_google(self, client: Any, tier: Optional[str] = None) -> Any:
+        """Wrap a google.genai.Client() with async budget enforcement.
+
+        Uses client.aio.models internally for all async API calls.
+
+        Args:
+            client: google.genai.Client() instance
+            tier: Optional pricing tier override. If None, uses session tier.
+
+        Returns:
+            Wrapped async Google client with budget enforcement
+        """
+        from .providers.google_provider import GoogleProvider
+        from .wrappers.google_async import AsyncGoogleClientWrapper
+
+        effective_tier = tier if tier is not None else self._tier
+        provider = GoogleProvider()
+
+        return AsyncGoogleClientWrapper(
+            client=client,
+            tracker=self._tracker,
+            provider=provider,
+            tier=effective_tier,
+            on_budget_exceeded=self._on_budget_exceeded,
+            on_warning=self._on_warning,
+            warning_thresholds=self._warning_thresholds,
+            fired_thresholds=self._fired_thresholds,
+        )
+
     def wrap_google(self, client: Any, tier: Optional[str] = None) -> Any:
         """Wrap a Google genai client with budget enforcement.
 
